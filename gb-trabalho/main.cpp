@@ -1,5 +1,8 @@
 #define STB_IMAGE_IMPLEMENTATION
+#define GL_LOG_FILE "gl.log"
 #define DEFAULT_TITLE_MESSAGE "Coloque o lixo na lixeira, cuidado para não cair no rio"
+#define WIN_TITLE_MESSAGE "Parabéns, você ajudou o lixeiro!"
+#define LOSE_TITLE_MESSAGE "Você poluiu o rio, que vacilo..."
 
 #include "stb_image.h"
 #include "gl_utils.h"
@@ -19,8 +22,6 @@
 #include "DiamondView.h"
 #include "ltMath.h"
 #include <fstream>
-
-#define GL_LOG_FILE "gl.log"
 
 using namespace std;
 
@@ -151,8 +152,8 @@ void loadObjectTextures()
 void createObjectLayer()
 {
 	sceneObjects.clear();
-	sceneObjects.push_back({0, 6, 0, 0.5f, -0.025f});
-	sceneObjects.push_back({12, 6, 1, 0.6f, -0.025f});
+	sceneObjects.push_back({0, 7, 0, 0.5f, -0.025f});
+	sceneObjects.push_back({14, 7, 1, 0.6f, -0.025f});
 }
 
 bool isWalkableTile(const int tileId)
@@ -197,11 +198,11 @@ bool tryMoveSceneObject(const int direction)
 	sceneObjects[0].col = nextCol;
 	sceneObjects[0].row = nextRow;
 
-	if (nextCol == 12 && nextRow == 6)
+	if (nextCol == 14 && nextRow == 7)
 	{
 		g_gameOver = true;
 		g_gameWon = true;
-		updateTitleMessage("Parabéns, você ajudou o lixeiro!");
+		updateTitleMessage(WIN_TITLE_MESSAGE);
 		return true;
 	}
 
@@ -210,7 +211,7 @@ bool tryMoveSceneObject(const int direction)
 	{
 		g_gameOver = true;
 		g_gameWon = false;
-		updateTitleMessage("Você poluiu o rio, que vacilo...");
+		updateTitleMessage(LOSE_TITLE_MESSAGE);
 		return true;
 	}
 	return true;
@@ -509,19 +510,40 @@ int main()
 		}
 
 		int direction = 0;
-		if (GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_W) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_UP))
+		const bool keyUp = GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_W) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_UP);
+		const bool keyDown = GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_S) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_DOWN);
+		const bool keyLeft = GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_A) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_LEFT);
+		const bool keyRight = GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_D) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_RIGHT);
+
+		if (keyUp && keyRight)
+		{
+			direction = DIRECTION_EAST;
+		}
+		else if (keyDown && keyLeft)
+		{
+			direction = DIRECTION_WEST;
+		}
+		else if (keyRight && keyDown)
+		{
+			direction = DIRECTION_NORTH;
+		}
+		else if (keyUp && keyLeft)
+		{
+			direction = DIRECTION_SOUTH;
+		}
+		else if (keyUp)
 		{
 			direction = DIRECTION_SOUTHEAST;
 		}
-		else if (GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_S) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_DOWN))
+		else if (keyDown)
 		{
 			direction = DIRECTION_NORTHWEST;
 		}
-		else if (GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_A) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_LEFT))
+		else if (keyLeft)
 		{
 			direction = DIRECTION_SOUTHWEST;
 		}
-		else if (GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_D) || GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_RIGHT))
+		else if (keyRight)
 		{
 			direction = DIRECTION_NORTHEAST;
 		}
