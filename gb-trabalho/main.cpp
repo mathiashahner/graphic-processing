@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <string.h>
 #include <time.h>
 #include <iostream>
 #include <vector>
@@ -55,9 +54,12 @@ struct SceneObject
 	int textureIndex;
 	float scale;
 	float yOffset;
+	bool isCar = false;
+	int textureIndexBack = -1;
+	int movementDirection = 1;
 };
 
-static constexpr int OBJECT_TEXTURE_COUNT = 2;
+static constexpr int OBJECT_TEXTURE_COUNT = 10;
 ObjectTexture objectTextures[OBJECT_TEXTURE_COUNT] = {};
 vector<SceneObject> sceneObjects;
 
@@ -139,7 +141,15 @@ void loadObjectTextures()
 {
 	const char *objectFiles[OBJECT_TEXTURE_COUNT] = {
 			"assets/Decor_TrashBag.png",
-			"assets/Decor_TrashCan.png"};
+			"assets/Decor_TrashCan.png",
+			"assets/CarType1_Back.png",
+			"assets/CarType1_Front.png",
+			"assets/CarType2_Back.png",
+			"assets/CarType2_Front.png",
+			"assets/Bus_Back.png",
+			"assets/Bus_Front.png",
+			"assets/Truck_Red_Back.png",
+			"assets/Truck_Red_Front.png"};
 
 	for (int i = 0; i < OBJECT_TEXTURE_COUNT; i++)
 	{
@@ -152,8 +162,14 @@ void loadObjectTextures()
 void createObjectLayer()
 {
 	sceneObjects.clear();
-	sceneObjects.push_back({0, 7, 0, 0.5f, -0.025f});
-	sceneObjects.push_back({14, 7, 1, 0.6f, -0.025f});
+	sceneObjects.push_back({0, 7, 0, 0.4f, -0.020f});								// player
+	sceneObjects.push_back({14, 7, 1, 0.6f, -0.025f});							// trash can
+	sceneObjects.push_back({2, 0, 3, 1.2f, -0.045f, true, 2});			// car 1
+	sceneObjects.push_back({6, 2, 9, 1.2f, -0.045f, true, 8, -1});	// car 2
+	sceneObjects.push_back({5, 7, 5, 1.2f, -0.045f, true, 4});			// car 3
+	sceneObjects.push_back({11, 5, 3, 1.2f, -0.045f, true, 2, -1}); // car 4
+	sceneObjects.push_back({10, 1, 7, 1.2f, -0.045f, true, 6});			// car 5
+	sceneObjects.push_back({9, 14, 5, 1.2f, -0.045f, true, 4, -1}); // car 6
 }
 
 bool isWalkableTile(const int tileId)
@@ -178,6 +194,89 @@ void updateTitleMessage(const char *message)
 	glfwSetWindowTitle(g_window, tmp);
 }
 
+void loseGame()
+{
+	if (g_gameOver)
+	{
+		return;
+	}
+
+	g_gameOver = true;
+	g_gameWon = false;
+	updateTitleMessage(LOSE_TITLE_MESSAGE);
+}
+
+void winGame()
+{
+	if (g_gameOver)
+	{
+		return;
+	}
+
+	g_gameOver = true;
+	g_gameWon = true;
+	updateTitleMessage(WIN_TITLE_MESSAGE);
+}
+
+bool checkPlayerCarCollision()
+{
+	if (sceneObjects.size() < 3)
+	{
+		return false;
+	}
+
+	const SceneObject &player = sceneObjects[0];
+
+	for (size_t i = 2; i < sceneObjects.size(); i++)
+	{
+		const SceneObject &car = sceneObjects[i];
+		if (player.col == car.col && player.row == car.row)
+		{
+			loseGame();
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void updateCarMovement(const double currentSeconds, const double moveCooldown)
+{
+	if (g_gameOver || sceneObjects.size() < 3)
+	{
+		return;
+	}
+
+	static double lastCarMoveTime = 0.0;
+	if ((currentSeconds - lastCarMoveTime) < moveCooldown)
+	{
+		return;
+	}
+
+	for (size_t i = 2; i < sceneObjects.size(); i++)
+	{
+		SceneObject &car = sceneObjects[i];
+		if (!car.isCar || car.movementDirection == 0)
+		{
+			continue;
+		}
+
+		car.row += car.movementDirection;
+		if (car.row >= tmap->getLastRow())
+		{
+			car.row = tmap->getLastRow();
+			car.movementDirection = -1;
+		}
+		else if (car.row <= 0)
+		{
+			car.row = 0;
+			car.movementDirection = 1;
+		}
+	}
+
+	lastCarMoveTime = currentSeconds;
+}
+
 bool tryMoveSceneObject(const int direction)
 {
 	if (g_gameOver || sceneObjects.empty() || !tmap)
@@ -200,21 +299,28 @@ bool tryMoveSceneObject(const int direction)
 
 	if (nextCol == 14 && nextRow == 7)
 	{
-		g_gameOver = true;
-		g_gameWon = true;
-		updateTitleMessage(WIN_TITLE_MESSAGE);
+		winGame();
 		return true;
 	}
 
 	const int tileId = tmap->getTile(nextCol, nextRow);
 	if (!isWalkableTile(tileId))
 	{
-		g_gameOver = true;
-		g_gameWon = false;
-		updateTitleMessage(LOSE_TITLE_MESSAGE);
+		loseGame();
 		return true;
 	}
+
 	return true;
+}
+
+int getObjectTextureIndex(const SceneObject &obj)
+{
+	if (!obj.isCar)
+	{
+		return obj.textureIndex;
+	}
+
+	return (obj.movementDirection < 0) ? obj.textureIndexBack : obj.textureIndex;
 }
 
 int main()
@@ -406,6 +512,8 @@ int main()
 	{
 		// _update_fps_counter(g_window);
 		double current_seconds = glfwGetTime();
+		checkPlayerCarCollision();
+		updateCarMovement(current_seconds, 0.12);
 
 		// wipe the drawing surface clear
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -452,7 +560,7 @@ int main()
 			float anchorX = xi + x + tw * 0.5f;
 			float anchorY = y + th * 0.5f + obj.yOffset;
 			float objWidth = tw * obj.scale;
-			float objHeight = objWidth * objectTextures[obj.textureIndex].aspect;
+			float objHeight = objWidth * objectTextures[getObjectTextureIndex(obj)].aspect;
 
 			float objectVerticesFrame[] = {
 					anchorX - objWidth * 0.5f,
@@ -484,7 +592,7 @@ int main()
 			glUniform1f(glGetUniformLocation(shader_programme, "weight"), 0.0f);
 
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, objectTextures[obj.textureIndex].id);
+			glBindTexture(GL_TEXTURE_2D, objectTextures[getObjectTextureIndex(obj)].id);
 			glUniform1i(glGetUniformLocation(shader_programme, "sprite"), 0);
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		};

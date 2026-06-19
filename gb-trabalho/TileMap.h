@@ -37,6 +37,10 @@ public:
     int getHeight() {
         return this->height;
     }
+
+    int getLastRow() {
+        return this->height - 1;
+    }
     
     int getTile(int col, int row) {
         return this->map[col + row * this->width];
